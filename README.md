@@ -1,13 +1,32 @@
-# 🧩 PeerTube Server Setup — Dynamic `production.yaml` Generator
+# 🌐 PeerTube Complete Server Setup & Configuration Guide
 
-> A repository to safely store **PeerTube** server configurations and dynamically generate the real `production.yaml` file for any server/channel — without exposing secrets to Git.
-
-## 🚀 Why this repo?
-- Document server setup in a secure way.
-- Keep reusable configuration templates.
-- Dynamically generate the final `production.yaml` based on your options (domain, HTTPS, DB, SMTP, languages, resolutions…), with automatic backup of the previous file.
+This document combines two aspects of PeerTube setup:
+1. **Repository usage** → Dynamically generating secure `production.yaml` using `peertube-server-setup`.
+2. **Server setup** → Installing PeerTube from scratch on Ubuntu, configuring PostgreSQL, Redis, Nginx, and systemd.
 
 ---
+
+## 📋 Requirements
+- Ubuntu 22.04 or 24.04 (fresh server recommended)
+- Root or sudo access
+- A domain name (e.g., `videos.example.com`)
+- Node.js 20 + Corepack/Yarn
+- PostgreSQL 14+
+- Redis
+- ffmpeg 4.1+
+- Nginx + Certbot (for HTTPS)
+- systemd (to run PeerTube service)
+
+---
+
+# Part 1: 🧩 Repository — Dynamic `production.yaml` Generator
+
+This repo (`peertube-server-setup`) safely stores **PeerTube** server configuration templates and generates the real `production.yaml` file dynamically — without exposing secrets to Git.
+
+## 🚀 Why this repo?
+- Securely document server setup.
+- Keep reusable templates.
+- Dynamically generate `production.yaml` with your chosen parameters (domain, HTTPS, DB, SMTP, languages, resolutions…), while automatically backing up the old one.
 
 ## 📦 Repository Contents
 ```
@@ -19,104 +38,96 @@
 └─ generate_production_yaml.py# Script to dynamically generate production.yaml
 ```
 
-### What is *not* tracked by Git (thanks to `.gitignore`)
-- `config/production.yaml` (secrets: DB password, API keys…)
-- `storage/`, `logs/`, `versions/`, `current/`
+### Ignored (sensitive) files
+- `config/production.yaml` (DB secrets, API keys)
+- `storage/`, `logs/`, `versions/`
 - SSL certificates: `*.crt`, `*.key`, `*.pem`
 - Database dumps: `*.sql`, `*.dump`
-- Temporary dev environments: `venv/`, `.venv/`, `node_modules/`, …
-
-> The idea: you can publish/share this repo safely; secrets remain on the server only.
+- Temporary dev envs: `venv/`, `.venv/`, `node_modules/`
 
 ---
 
-## 🧰 Requirements (on server)
-- **Ubuntu 22.04/24.04** (or other modern Linux)
-- **Node.js 20** + **Corepack/Yarn**
-- **PostgreSQL 14+**
-- **Redis**
-- **ffmpeg 4.1+**
-- **Nginx** (reverse proxy and/or HTTPS)
-- **systemd** to manage `peertube` service
-
-> First-time setup: follow the official PeerTube guide, then use this repo to easily generate/update `production.yaml`.
-
----
-
-## ⚡️ Quickstart
-1) **Clone the repo** on your server:
+## ⚡️ Quickstart with the repo
+1) Clone repo:
 ```bash
 cd /var/www
 sudo git clone https://github.com/<you>/peertube-server-setup.git
 cd peertube-server-setup
 ```
 
-2) **Make script executable**:
+2) Make script executable:
 ```bash
 sudo chmod +x generate_production_yaml.py
 ```
 
-3) **Generate production.yaml** (local example without HTTPS):
+3) Generate `production.yaml` (example):
 ```bash
 sudo ./generate_production_yaml.py   --domain 127.0.0.1   --https false --web-port 9000   --db-host 127.0.0.1 --db-port 5432 --db-user peertube --db-pass 'peertube'   --instance-name "PeerTube" --instance-desc "Local instance (no domain, no SMTP)"   --languages en,de,ar   --resolutions 720p,1080p   --out /var/www/peertube/config/production.yaml
 ```
 
-> The script automatically **creates a backup** if `production.yaml` exists, writes the new one, and can set **permissions** (chmod 600) and **ownership** (`peertube:peertube`).
-
-4) **Restart service**:
+4) Restart PeerTube service:
 ```bash
 sudo systemctl restart peertube
 sudo systemctl status peertube --no-pager -n 20
 ```
 
----
-
-## ⚙️ Key script options
-> Use `--help` for the full list.
+### Key script options
+See `--help` for full list.
 
 | Option | Type/Value | Description |
-|---|---|---|
-| `--domain` | string | Public hostname (e.g. `videos.example.com`) or IP |
-| `--https` | `true/false` | Whether behind HTTPS on Nginx |
-| `--web-port` | number | Listening port (default 9000) |
-| `--db-host`/`--db-port` | string/number | PostgreSQL host and port |
-| `--db-user`/`--db-pass` | string | DB username and password |
-| `--db-name` | string | Custom DB name (optional) |
-| `--db-ssl` | `true/false` | Enable SSL for DB |
-| `--smtp-*` | string/number | SMTP host/port/user/pass |
-| `--from-address` | string | Default sender email |
-| `--instance-name`/`--instance-desc` | string | Instance name and description |
-| `--languages` | CSV list | Languages (e.g. `en,de,ar`) |
-| `--resolutions` | CSV list | Enabled resolutions (e.g. `720p,1080p,2160p`) |
-| `--hls-enabled` | `true/false` | Enable HLS (recommended) |
-| `--web-videos-enabled` | `true/false` | Enable Web Videos (uses more space) |
-| `--transcoding-keep-original` | `true/false` | Keep original file after transcoding |
-| `--video-quota*` | string | User upload quota (`-1` = unlimited, `50GB` etc) |
-| `--out` | path | Output path for `production.yaml` |
+|--------|------------|-------------|
+| `--domain` | string | Public hostname or IP |
+| `--https` | true/false | Behind HTTPS or not |
+| `--db-user`/`--db-pass` | string | PostgreSQL credentials |
+| `--smtp-*` | string/number | SMTP config |
+| `--languages` | CSV list | UI languages |
+| `--resolutions` | CSV list | Enabled video resolutions |
+| `--out` | path | Output for `production.yaml` |
 
 ---
 
-## 🧪 Example Scenarios
-### 1) Local server, no HTTPS
-See quickstart example.
+# Part 2: 🚀 Full PeerTube Server Setup
 
-### 2) With domain + HTTPS
+This section covers installing PeerTube from scratch.
+
+## 🛠 Step 1: Update your system
 ```bash
-sudo ./generate_production_yaml.py   --domain videos.example.com   --https true --web-port 9000   --db-host 127.0.0.1 --db-port 5432 --db-user peertube --db-pass 'CHANGE_ME'   --instance-name "MyTube" --instance-desc "Public instance"   --languages en,de,ar --resolutions 720p,1080p,2160p   --out /var/www/peertube/config/production.yaml
+sudo apt update && sudo apt upgrade -y
 ```
 
-### 3) With SMTP enabled
-Add for email:
+## 🛠 Step 2: Install dependencies
 ```bash
-  --smtp-host smtp.mailprovider.com --smtp-port 587 \
-  --smtp-user 'noreply@yourdomain.com' --smtp-pass 'APP_PASSWORD' \
-  --smtp-tls false --smtp-starttls-disable false \
-  --from-address "PeerTube <noreply@yourdomain.com>"
+sudo apt install -y curl wget gnupg lsb-release unzip git vim
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo corepack enable
+sudo apt install -y postgresql postgresql-contrib redis-server ffmpeg
+sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
----
+## 🛠 Step 3: Create PeerTube user
+```bash
+sudo adduser --disabled-password --gecos "" peertube
+```
 
-## 🌐 Nginx Setup
+## 🛠 Step 4: Setup database
+```bash
+sudo -u postgres createuser -P peertube
+sudo -u postgres createdb -O peertube peertube
+```
+
+## 🛠 Step 5: Download PeerTube
+```bash
+cd /var/www
+sudo -u peertube git clone -b production https://github.com/Chocobozzz/PeerTube.git peertube
+cd peertube
+sudo -u peertube yarn install --production --pure-lockfile
+```
+
+## 🛠 Step 6: Generate production.yaml
+Use `peertube-server-setup` repo (Part 1).
+
+## 🛠 Step 7: Configure Nginx
 File: `/etc/nginx/sites-available/peertube`
 ```nginx
 server {
@@ -138,40 +149,74 @@ server {
   }
 }
 ```
-
-Enable & reload:
+Enable site & reload:
 ```bash
 sudo ln -s /etc/nginx/sites-available/peertube /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
+Enable HTTPS:
+```bash
+sudo certbot --nginx -d videos.example.com
+```
+
+## 🛠 Step 8: systemd service
+File: `/etc/systemd/system/peertube.service`
+```ini
+[Unit]
+Description=PeerTube
+After=postgresql.service redis-server.service
+
+[Service]
+User=peertube
+WorkingDirectory=/var/www/peertube
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+Enable & start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable peertube
+sudo systemctl start peertube
+```
 
 ---
 
-## 🛡️ Security tips
-- Never commit `production.yaml` (ignored by Git).
-- Restrict file perms: `chmod 600`, owner `peertube:peertube`.
-- Keep `secrets.peertube` stable once generated.
-- Expose only Nginx port to public.
+# ✅ Final Check
+- Visit `https://videos.example.com`
+- Login with admin account (first startup)
+- Upload a test video 🎬
 
 ---
 
-## 🧯 Troubleshooting
-- **DB error 28P01 (auth failure):** check DB user/pass, try `psql -h 127.0.0.1 -U peertube -d peertube`.
-- **504 Gateway Timeout:** ensure PeerTube is running (`ss -lntp | grep ':9000'`), adjust Nginx timeouts, check logs `journalctl -u peertube`.
-- **Videos not playing:** ensure `webserver.hostname` matches domain, check HTTPS value, check ffmpeg/transcoding.
+# 🔧 Maintenance
+- Restart: `sudo systemctl restart peertube`
+- Logs: `journalctl -u peertube -n 50 --no-pager`
+- Update PeerTube:
+```bash
+cd /var/www/peertube
+sudo -u peertube git pull
+sudo -u peertube yarn install --production --pure-lockfile
+```
 
 ---
 
-## 🤝 Contributing
-- Open **Issues** for bugs/ideas.
-- Submit **Pull Requests** for improvements.
-
-## 📄 License
-Add a license file (MIT recommended).
+# 🛡 Security Notes
+- Never commit `production.yaml` to Git.
+- Set file perms: `chmod 600 config/production.yaml`, owner `peertube:peertube`.
+- Expose only Nginx to the internet.
 
 ---
 
-## 💬 FAQ
-- **Can I use the same script for multiple servers/channels?** Yes, pass different args.
-- **Where to put `location /` block?** Inside Nginx site config `/etc/nginx/sites-available/`.
-- **How to make script executable?** `sudo chmod +x generate_production_yaml.py` and run with `sudo ./generate_production_yaml.py ...`.
+# 🧯 Troubleshooting
+- **DB error 28P01:** check DB credentials, test with `psql`.
+- **504 Gateway Timeout:** ensure PeerTube is running, adjust Nginx proxy timeouts.
+- **Videos not playing:** check hostname/HTTPS match, ffmpeg config.
+
+---
+
+# 📄 License
+MIT (or your choice)
