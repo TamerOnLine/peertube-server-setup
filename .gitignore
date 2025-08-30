@@ -1,0 +1,42 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PeerTube config (حساس لا ترفعه)
+config/production.yaml
+config/local.yaml
+
+# Logs
+logs/
+*.log
+
+# Uploads / storage
+storage/
+tmp/
+.cache/
+
+# Database dumps
+*.sql
+*.dump
+
+# Python stuff
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+
+# PeerTube versions
+versions/
+current
