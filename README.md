@@ -220,3 +220,15 @@ sudo -u peertube yarn install --production --pure-lockfile
 
 # 📄 License
 MIT (or your choice)
+
+---
+
+# ⚡ One-liner: Generate config + restart service
+
+For convenience, you can generate a new `production.yaml` **and restart PeerTube in one command**:
+
+```bash
+sudo ./generate_production_yaml.py   --domain videos.example.com   --https true --web-port 9000   --db-host 127.0.0.1 --db-port 5432 --db-user peertube --db-pass 'CHANGE_ME'   --instance-name "MyTube" --instance-desc "Public PeerTube instance"   --languages en,de,ar --resolutions 720p,1080p   --out /var/www/peertube/config/production.yaml && sudo systemctl restart peertube && sudo systemctl status peertube --no-pager -n 20
+```
+
+This way, each time you adjust parameters, your instance will be updated and restarted automatically.
